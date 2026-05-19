@@ -261,10 +261,10 @@ if __name__ == '__main__':
         days = int(sys.argv[3]) if len(sys.argv) > 3 else 100
         results = query_etf_trend(sec_code, days)
         print(f"\nETF {sec_code} trend (last {days} days):")
-        print(f"{'Date':<12} {'Volume(亿份)':>18}")
+        print(f"{'Date':<12} {'Volume(万份)':>18}")
         print("-" * 35)
         for date, vol in results[-20:]:
-            print(f"{date:<12} {vol/10000:>18.4f}")
+            print(f"{date:<12} {vol:>18.2f}")
     elif cmd == 'check':
         check_data_completeness()
     else:
