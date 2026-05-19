@@ -183,11 +183,11 @@ def generate_html(etf_code, trend_data, output_path):
     <div class="container">
         <div class="header"><h1>{sec_name} ({etf_code}) 份额趋势</h1></div>
         <div class="stats">
-            <div class="stat-card"><div class="label">最新份额</div><div class="value">{current_val/10000:.2f} <span style="font-size:14px">万</span></div><div class="sub">{dates[-1]}</div></div>
+            <div class="stat-card"><div class="label">最新份额</div><div class="value">{current_val/10000:.2f} <span style="font-size:14px">亿</span></div><div class="sub">{dates[-1]}</div></div>
             <div class="stat-card"><div class="label">期间涨跌幅</div><div class="value {"change-up" if change >= 0 else "change-down"}">{change:+.2f}%</div><div class="sub">{dates[0]} ~ {dates[-1]}</div></div>
-            <div class="stat-card"><div class="label">最高份额</div><div class="value">{max_val/10000:.2f} <span style="font-size:14px">万</span></div><div class="sub">{dates[max_idx]}</div></div>
-            <div class="stat-card"><div class="label">最低份额</div><div class="value">{min_val/10000:.2f} <span style="font-size:14px">万</span></div><div class="sub">{dates[min_idx]}</div></div>
-            <div class="stat-card"><div class="label">平均份额</div><div class="value">{avg_val/10000:.2f} <span style="font-size:14px">万</span></div><div class="sub">日均</div></div>
+            <div class="stat-card"><div class="label">最高份额</div><div class="value">{max_val/10000:.2f} <span style="font-size:14px">亿</span></div><div class="sub">{dates[max_idx]}</div></div>
+            <div class="stat-card"><div class="label">最低份额</div><div class="value">{min_val/10000:.2f} <span style="font-size:14px">亿</span></div><div class="sub">{dates[min_idx]}</div></div>
+            <div class="stat-card"><div class="label">平均份额</div><div class="value">{avg_val/10000:.2f} <span style="font-size:14px">亿</span></div><div class="sub">日均</div></div>
             <div class="stat-card"><div class="label">数据天数</div><div class="value">{len(dates)}</div><div class="sub">交易日</div></div>
         </div>
         <div class="chart-container"><div id="chart"></div></div>
@@ -238,4 +238,4 @@ if __name__ == '__main__':
 
         print(f"\nData summary (last 5 days):")
         for d, v in list(trend.items())[-5:]:
-            print(f"  {d}: {v['secName']} - {v['totVol']/10000:.2f}万")
+            print(f"  {d}: {v['secName']} - {v['totVol']/10000:.4f}亿")

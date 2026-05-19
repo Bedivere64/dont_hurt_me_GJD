@@ -227,7 +227,7 @@ def check_data_completeness():
 def print_rising_etfs(results):
     """打印份额上升的ETF列表"""
     print("=" * 90)
-    print(f"{'Code':<10} {'Name':<14} {'Days':<5} {'Start(W)':<12} {'End(W)':<12} {'Change%':<10} {'Period'}")
+    print(f"{'Code':<10} {'Name':<14} {'Days':<5} {'Start(亿)':<12} {'End(亿)':<12} {'Change%':<10} {'Period'}")
     print("-" * 90)
 
     for row in results:
@@ -261,10 +261,10 @@ if __name__ == '__main__':
         days = int(sys.argv[3]) if len(sys.argv) > 3 else 100
         results = query_etf_trend(sec_code, days)
         print(f"\nETF {sec_code} trend (last {days} days):")
-        print(f"{'Date':<12} {'Volume':>15}")
-        print("-" * 30)
+        print(f"{'Date':<12} {'Volume(亿份)':>18}")
+        print("-" * 35)
         for date, vol in results[-20:]:
-            print(f"{date:<12} {vol/10000:>15.2f}万")
+            print(f"{date:<12} {vol/10000:>18.4f}")
     elif cmd == 'check':
         check_data_completeness()
     else:
