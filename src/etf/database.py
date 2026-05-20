@@ -31,6 +31,13 @@ def init_db() -> sqlite3.Connection:
     if 'full_name' not in columns:
         cursor.execute('ALTER TABLE etf_info ADD COLUMN full_name TEXT')
 
+    # 检查 etf_daily_share 表是否有 close_price 字段
+    cursor.execute("PRAGMA table_info(etf_daily_share)")
+    share_columns = [col[1] for col in cursor.fetchall()]
+
+    if 'close_price' not in share_columns:
+        cursor.execute('ALTER TABLE etf_daily_share ADD COLUMN close_price REAL')
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS etf_info (
             sec_code TEXT PRIMARY KEY,
@@ -46,6 +53,7 @@ def init_db() -> sqlite3.Connection:
             stat_date TEXT,
             tot_vol REAL,
             num INTEGER,
+            close_price REAL,
             PRIMARY KEY (sec_code, stat_date)
         )
     ''')
@@ -60,12 +68,35 @@ def get_connection() -> sqlite3.Connection:
     return sqlite3.connect(get_db_path())
 
 
-def save_to_db(conn, results):
-    """保存到数据库"""
+def save_to_db(conn, results, prices=None):
+    """
+    保存到数据库
+
+    Args:
+        conn: 数据库连接
+        results: ETF份额数据列表
+        prices: ETF收盘价字典 {sec_code: {date: close_price}}
+    """
     cursor = conn.cursor()
-    data_list = [(r['SEC_CODE'], r['STAT_DATE'], float(r['TOT_VOL']), int(r['NUM'])) for r in results]
+
+    # 构建收盘价查找表
+    price_map = {}
+    if prices:
+        for sec_code, date_prices in prices.items():
+            for date, close_price in date_prices.items():
+                price_map[(sec_code, date)] = close_price
+
+    data_list = []
+    for r in results:
+        sec_code = r['SEC_CODE']
+        stat_date = r['STAT_DATE']
+        tot_vol = float(r['TOT_VOL'])
+        num = int(r['NUM'])
+        close_price = price_map.get((sec_code, stat_date))
+        data_list.append((sec_code, stat_date, tot_vol, num, close_price))
+
     cursor.executemany(
-        'INSERT OR REPLACE INTO etf_daily_share (sec_code, stat_date, tot_vol, num) VALUES (?, ?, ?, ?)',
+        'INSERT OR REPLACE INTO etf_daily_share (sec_code, stat_date, tot_vol, num, close_price) VALUES (?, ?, ?, ?, ?)',
         data_list
     )
 

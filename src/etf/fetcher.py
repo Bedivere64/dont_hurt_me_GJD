@@ -15,6 +15,85 @@ except ImportError:
         return date.weekday() < 5
 
 
+def get_etf_market_code(sec_code: str) -> str:
+    """
+    根据ETF代码获取东方财富的市场代码
+
+    Args:
+        sec_code: ETF代码，如 510300
+
+    Returns:
+        东方财富格式的市场代码，如 "1.510300"（1=上海，0=深圳）
+    """
+    # 上海ETF代码以51/58/50开头
+    sh_prefixes = ('51', '58', '50', '56', '59')
+    if sec_code.startswith(sh_prefixes):
+        return f"1.{sec_code}"
+    else:
+        return f"0.{sec_code}"
+
+
+def fetch_etf_close_prices(sec_codes: List[str], dates: List[str]) -> Dict[str, Dict[str, float]]:
+    """
+    从新浪财经获取ETF收盘价数据
+
+    Args:
+        sec_codes: ETF代码列表
+        dates: 日期列表
+
+    Returns:
+        {sec_code: {date: close_price}} 字典
+    """
+    if not sec_codes or not dates:
+        return {}
+
+    dates_set = set(dates)
+    # 计算需要获取的历史数据天数（留一些余量）
+    date_list = sorted(dates_set)
+    days_needed = max(30, len(dates_set) + 10)  # 至少获取30天或所有日期
+
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': 'https://finance.sina.com.cn/'
+    }
+
+    result = {}
+
+    for i, sec_code in enumerate(sec_codes):
+        # 上海ETF用sh前缀，深圳ETF用sz前缀
+        if sec_code.startswith(('51', '58', '50', '56', '59')):
+            symbol = f'sh{sec_code}'
+        else:
+            symbol = f'sz{sec_code}'
+
+        url = (f'https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/'
+               f'CN_MarketData.getKLineData?symbol={symbol}&scale=240&ma=5&datalen={days_needed}')
+
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as response:
+                data = json.loads(response.read().decode('utf-8'))
+
+                sec_result = {}
+                for item in data:
+                    day = item.get('day', '')
+                    close = item.get('close')
+                    if day and close:
+                        sec_result[day] = float(close)
+
+                if sec_result:
+                    result[sec_code] = sec_result
+
+        except Exception:
+            pass
+
+        # 添加延迟避免触发反爬
+        if i < len(sec_codes) - 1:
+            time.sleep(0.3)
+
+    return result
+
+
 def fetch_etf_data(date_str: str) -> List[Dict[str, Any]]:
     """
     获取指定日期的全量ETF份额数据（自动处理分页）
@@ -123,7 +202,7 @@ def get_trading_days(days: int = 130) -> List[str]:
 
 def fetch_data(days: int = 126, max_workers: int = 50) -> int:
     """
-    采集数据
+    采集数据（份额+收盘价）
 
     Args:
         days: 采集多少个交易日的数据
@@ -138,17 +217,34 @@ def fetch_data(days: int = 126, max_workers: int = 50) -> int:
     trading_days = get_trading_days(days)
     print(f"Fetching {len(trading_days)} trading days data (with pagination)...")
 
-    total = 0
+    # 第一阶段：获取份额数据
+    all_results = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {executor.submit(fetch_etf_data, d): d for d in trading_days}
         for future in as_completed(futures):
             results = future.result()
             if results:
-                save_to_db(conn, results)
-                total += len(results)
+                all_results.extend(results)
+
+    if not all_results:
+        conn.close()
+        print("No data fetched")
+        return 0
+
+    # 收集所有ETF代码和日期
+    sec_codes = list(set(r['SEC_CODE'] for r in all_results))
+    dates = list(set(r['STAT_DATE'] for r in all_results))
+    print(f"Fetching close prices for {len(sec_codes)} ETFs over {len(dates)} days...")
+
+    # 第二阶段：获取收盘价数据
+    prices = fetch_etf_close_prices(sec_codes, dates)
+
+    # 第三阶段：保存数据
+    save_to_db(conn, all_results, prices)
+    total = len(all_results)
 
     conn.close()
-    print(f"Done: {total} records saved")
+    print(f"Done: {total} records saved (with close prices)")
     return total
 
 
