@@ -4,22 +4,35 @@
 
 ## 功能特性
 
-- 自动采集ETF每日份额数据（支持全量837+只ETF）
+- 自动采集ETF每日份额数据（支持全量800+只ETF）
 - SQLite本地数据库存储
 - 智能分页处理
 - 节假日自动跳过
 - 并发加速采集
 - 份额趋势HTML可视化
+- 支持简称/全称切换展示
 
 ## 项目结构
 
 ```
 etf-project/
-├── etf_db.py          # 数据库管理 + 查询分析
-├── etf_trend.py       # 趋势图生成
-├── etf_data.db        # SQLite数据库（自动创建）
-├── requirements.txt   # 依赖
-└── README.md
+├── src/etf/              # 核心包
+│   ├── __init__.py
+│   ├── database.py       # 数据库操作
+│   ├── fetcher.py        # 数据拉取
+│   ├── queries.py        # 数据查询
+│   └── cli.py            # 命令行入口
+├── scripts/              # 独立脚本
+│   ├── etf_trend.py      # 趋势图生成
+│   └── etf_compare.py    # ETF对比工具
+├── data/                 # 数据目录
+│   └── etf_data.db       # SQLite数据库
+├── tests/                # 测试目录
+├── docs/                 # 文档目录
+├── .claude/skills/etf/   # Claude Code技能
+├── README.md
+├── requirements.txt
+└── pyproject.toml
 ```
 
 ## 安装依赖
@@ -30,37 +43,42 @@ pip install -r requirements.txt
 
 ## 使用方法
 
-### 1. 采集数据
+### 命令行工具（推荐）
 
 ```bash
-# 采集近半年数据（约126个交易日）
-python etf_db.py fetch
+# 采集数据
+python -m src.etf.cli fetch 5
 
-# 采集指定天数
-python etf_db.py fetch 252
-```
-
-### 2. 查询分析
-
-```bash
 # 查询份额上升的ETF
-python etf_db.py query
+python -m src.etf.cli query 126
 
-# 查询近一年
-python etf_db.py query 252
+# 查看证券ETF份额变化
+python -m src.etf.cli securities
+
+# 份额增加前10名
+python -m src.etf.cli top 10
+
+# 份额增幅前10名
+python -m src.etf.cli top_pct 10
+
+# 查看某ETF趋势
+python -m src.etf.cli trend 512880
+
+# 检查数据完整性
+python -m src.etf.cli check
+
+# 更新ETF完整名称
+python -m src.etf.cli update_names
 ```
 
-### 3. 生成趋势图
+### 独立脚本
 
 ```bash
-# 生成某ETF趋势图
-python etf_trend.py 512070 500
-```
+# 生成ETF趋势HTML图
+python scripts/etf_trend.py 512880 500
 
-### 4. 数据完整性检查
-
-```bash
-python etf_db.py check
+# 对比两只ETF
+python scripts/etf_compare.py 512880 512070
 ```
 
 ## 数据库表结构
@@ -70,6 +88,7 @@ python etf_db.py check
 |------|------|------|
 | sec_code | TEXT | ETF代码 (PK) |
 | sec_name | TEXT | ETF简称 |
+| full_name | TEXT | ETF全称（含公司） |
 | etf_type | TEXT | ETF类型 |
 
 ### etf_daily_share - 每日份额
@@ -77,11 +96,12 @@ python etf_db.py check
 |------|------|------|
 | sec_code | TEXT | ETF代码 (PK) |
 | stat_date | TEXT | 日期 (PK) |
-| tot_vol | REAL | 总份额 |
+| tot_vol | REAL | 总份额（万份） |
 | num | INTEGER | 排名 |
 
 ## 数据来源
 
 上海证券交易所 (SSE) 官方接口
-- 接口: `commonQuery.do?sqlId=COMMON_SSE_ZQPZ_ETFZL_XXPL_ETFGM_SEARCH_L`
-- 每日更新频率: 收盘后
+- 份额接口: `commonQuery.do?sqlId=COMMON_SSE_ZQPZ_ETFZL_XXPL_ETFGM_SEARCH_L`
+- 全称接口: `security/stock/queryExpandName.do`
+- 每日更新频率: 收盘后清算完成后（约20:00-22:00）
