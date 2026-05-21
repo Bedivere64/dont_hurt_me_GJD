@@ -33,13 +33,14 @@ def get_etf_market_code(sec_code: str) -> str:
         return f"0.{sec_code}"
 
 
-def fetch_etf_close_prices(sec_codes: List[str], dates: List[str]) -> Dict[str, Dict[str, float]]:
+def fetch_etf_close_prices(sec_codes: List[str], dates: List[str], max_workers: int = 20) -> Dict[str, Dict[str, float]]:
     """
-    从新浪财经获取ETF收盘价数据
+    从新浪财经获取ETF收盘价数据（并发执行）
 
     Args:
         sec_codes: ETF代码列表
         dates: 日期列表
+        max_workers: 最大并发数
 
     Returns:
         {sec_code: {date: close_price}} 字典
@@ -50,17 +51,10 @@ def fetch_etf_close_prices(sec_codes: List[str], dates: List[str]) -> Dict[str, 
     dates_set = set(dates)
     # 计算需要获取的历史数据天数（留一些余量）
     date_list = sorted(dates_set)
-    days_needed = max(30, len(dates_set) + 10)  # 至少获取30天或所有日期
+    days_needed = max(30, len(dates_set) + 10)
 
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': 'https://finance.sina.com.cn/'
-    }
-
-    result = {}
-
-    for i, sec_code in enumerate(sec_codes):
-        # 上海ETF用sh前缀，深圳ETF用sz前缀
+    def fetch_single_etf(sec_code: str) -> tuple:
+        """获取单个ETF的收盘价"""
         if sec_code.startswith(('51', '58', '50', '56', '59')):
             symbol = f'sh{sec_code}'
         else:
@@ -68,6 +62,11 @@ def fetch_etf_close_prices(sec_codes: List[str], dates: List[str]) -> Dict[str, 
 
         url = (f'https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/'
                f'CN_MarketData.getKLineData?symbol={symbol}&scale=240&ma=5&datalen={days_needed}')
+
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Referer': 'https://finance.sina.com.cn/'
+        }
 
         try:
             req = urllib.request.Request(url, headers=headers)
@@ -81,15 +80,18 @@ def fetch_etf_close_prices(sec_codes: List[str], dates: List[str]) -> Dict[str, 
                     if day and close:
                         sec_result[day] = float(close)
 
-                if sec_result:
-                    result[sec_code] = sec_result
-
+                return sec_code, sec_result
         except Exception:
-            pass
+            return sec_code, {}
 
-        # 添加延迟避免触发反爬
-        if i < len(sec_codes) - 1:
-            time.sleep(0.3)
+    # 并发执行
+    result = {}
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(fetch_single_etf, code): code for code in sec_codes}
+        for future in as_completed(futures):
+            sec_code, sec_result = future.result()
+            if sec_result:
+                result[sec_code] = sec_result
 
     return result
 
