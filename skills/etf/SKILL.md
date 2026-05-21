@@ -55,6 +55,20 @@ python scripts/etf_compare.py 510300 500
 
 ## 数据库字段说明
 
-- `sec_name` - ETF简称（如"证券ETF"）
-- `full_name` - ETF全称（含公司，如"证券ETF国泰"）
-- `tot_vol` - 总份额（单位：万份）
+### etf_info - ETF基本信息
+
+| 字段      | 类型 | 说明              |
+| --------- | ---- | ----------------- |
+| sec_code  | TEXT | ETF代码 (PK)      |
+| sec_name  | TEXT | ETF简称           |
+| full_name | TEXT | ETF全称（含公司） |
+| etf_type  | TEXT | ETF类型           |
+
+### etf_daily_share - 每日份额
+
+| 字段      | 类型    | 说明           |
+| --------- | ------- | -------------- |
+| sec_code  | TEXT    | ETF代码 (PK)   |
+| stat_date | TEXT    | 日期 (PK)      |
+| tot_vol   | REAL    | 总份额（万份） |
+| num       | INTEGER | 排名           |
