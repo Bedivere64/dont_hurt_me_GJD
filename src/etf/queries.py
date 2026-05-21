@@ -2,7 +2,7 @@
 ETF数据查询模块
 """
 import sqlite3
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 from .database import get_connection
 
 
@@ -69,8 +69,21 @@ def query_etf_trend(sec_code: str, days: int = 100) -> List[Tuple]:
     ''', (sec_code, days))
     results = cursor.fetchall()
     conn.close()
-    return results
+    return results if results else []
 
+def query_etf_info(sec_code: str) -> Optional[Dict]:
+    """查询某ETF的详细信息"""
+    conn = get_connection()
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute('''
+                   SELECT *
+                   FROM etf_info
+                   WHERE sec_code = ?
+                   ''', (sec_code,))
+    results = cursor.fetchone()
+    conn.close()
+    return results if results else None
 
 def query_securities_etf(sorted_by: str = 'volume') -> List[Tuple]:
     """

@@ -8,7 +8,7 @@ from .queries import (
     query_etf_trend,
     query_securities_etf,
     query_top_etfs,
-    check_data_completeness
+    check_data_completeness, query_etf_info
 )
 
 
@@ -57,8 +57,12 @@ ETF份额数据分析工具
     elif cmd == 'trend':
         sec_code = sys.argv[2] if len(sys.argv) > 2 else '510050'
         days = int(sys.argv[3]) if len(sys.argv) > 3 else 100
+        etf_info = query_etf_info(sec_code)
+        if etf_info is None:
+            print("ETF {} not found".format(sec_code))
+            return
         results = query_etf_trend(sec_code, days)
-        print(f"\nETF {sec_code} trend (last {days} days):")
+        print(f"\nETF {sec_code} {etf_info['full_name']} {etf_info['sec_name']} {etf_info['etf_type']} trend (last {days} days):")
         print(f"{'Date':<12} {'Volume(万份)':>18}")
         print("-" * 35)
         for date, vol in results[-20:]:
