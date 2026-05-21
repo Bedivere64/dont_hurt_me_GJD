@@ -3,6 +3,7 @@ ETF命令行工具
 """
 import sys
 from .fetcher import fetch_data, update_full_names
+from .fetcher_szse import fetch_data as fetch_szse_data
 from .queries import (
     query_rising_etfs,
     query_etf_trend,
@@ -34,14 +35,15 @@ def main():
 ETF份额数据分析工具
 
 用法:
-    python -m src.etf.cli fetch [天数]     # 采集数据
-    python -m src.etf.cli query            # 查询份额上升的ETF
-    python -m src.etf.cli trend [代码]     # 查看某ETF趋势
-    python -m src.etf.cli check            # 检查数据完整性
-    python -m src.etf.cli securities       # 查看证券ETF份额变化
-    python -m src.etf.cli top [n]         # 查看份额增加最多的n只ETF
-    python -m src.etf.cli top_pct [n]     # 查看份额增幅最多的n只ETF
-    python -m src.etf.cli update_names     # 更新ETF完整名称
+    python -m src.etf.cli fetch [天数]         # 采集上交所数据
+    python -m src.etf.cli fetch_szse [天数]    # 采集深交所数据
+    python -m src.etf.cli query              # 查询份额上升的ETF
+    python -m src.etf.cli trend [代码]       # 查看某ETF趋势
+    python -m src.etf.cli check              # 检查数据完整性
+    python -m src.etf.cli securities          # 查看证券ETF份额变化
+    python -m src.etf.cli top [n]           # 查看份额增加最多的n只ETF
+    python -m src.etf.cli top_pct [n]       # 查看份额增幅最多的n只ETF
+    python -m src.etf.cli update_names       # 更新ETF完整名称
 """)
         sys.exit(1)
 
@@ -50,6 +52,9 @@ ETF份额数据分析工具
     if cmd == 'fetch':
         days = int(sys.argv[2]) if len(sys.argv) > 2 else 126
         fetch_data(days)
+    elif cmd == 'fetch_szse':
+        days = int(sys.argv[2]) if len(sys.argv) > 2 else 500
+        fetch_szse_data(days)
     elif cmd == 'query':
         days = int(sys.argv[2]) if len(sys.argv) > 2 else 126
         results = query_rising_etfs(days)

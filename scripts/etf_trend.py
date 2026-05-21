@@ -9,42 +9,40 @@ import os
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import sqlite3
 from datetime import datetime
 from collections import OrderedDict
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
-from src.etf.fetcher import fetch_etf_data, get_trading_days
 
 
-def get_etf_trend(etf_code, days=500, max_workers=20):
-    """获取某ETF最近days天的份额趋势"""
-    trading_days = get_trading_days(days)
-    print(f"Getting {etf_code} {days} days trend ({len(trading_days)} trading days)...")
+def get_etf_trend(etf_code, days=500):
+    """从数据库获取某ETF最近days天的份额趋势"""
+    db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'etf_data.db')
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+
+    cur.execute('''
+        SELECT d.stat_date, d.tot_vol, i.sec_name
+        FROM etf_daily_share d
+        JOIN etf_info i ON d.sec_code = i.sec_code
+        WHERE d.sec_code = ?
+        ORDER BY d.stat_date DESC
+        LIMIT ?
+    ''', (etf_code, days))
+
+    rows = cur.fetchall()
+    conn.close()
+
+    if not rows:
+        return OrderedDict()
 
     trend_data = OrderedDict()
-    completed = 0
+    for row in reversed(rows):
+        trend_data[row[0]] = {
+            'totVol': float(row[1]),
+            'secName': row[2],
+        }
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(fetch_etf_data, d): d for d in trading_days}
-        for future in as_completed(futures):
-            date_str = futures[future]
-            results = future.result()
-            completed += 1
-            if completed % 50 == 0:
-                print(f"  Progress: {completed}/{len(trading_days)}")
-
-            if results:
-                for r in results:
-                    if r.get('SEC_CODE') == etf_code:
-                        trend_data[date_str] = {
-                            'totVol': float(r.get('TOT_VOL', 0)),
-                            'secName': r.get('SEC_NAME', ''),
-                            'etfType': r.get('ETF_TYPE', '')
-                        }
-                        break
-
-    trend_data = OrderedDict(sorted(trend_data.items()))
-    print(f"Got {len(trend_data)} days data")
+    print(f"Got {len(trend_data)} days data from database")
     return trend_data
 
 
@@ -143,18 +141,18 @@ def generate_html(etf_code, trend_data, output_path):
         var chart = echarts.init(document.getElementById('chart'));
         var option = {{
             backgroundColor: 'transparent',
-            tooltip: {{ trigger: 'axis', backgroundColor: 'rgba(50, 50, 50, 0.9)', borderColor: 'rgba(255, 255, 255, 0.1)', textStyle: {{ color: '#fff' }}, formatter: function(params) {{ var data = params[0]; return data.name + '<br/>份额: ' + (data.value / 10000).toFixed(2) + ' 万'; }} }},
+            tooltip: {{ trigger: 'axis', backgroundColor: 'rgba(50, 50, 50, 0.9)', borderColor: 'rgba(255, 255, 255, 0.1)', textStyle: {{ color: '#fff' }}, formatter: function(params) {{ var data = params[0]; return data.name + '<br/>份额: ' + (data.value / 10000).toFixed(2) + ' 亿'; }} }},
             grid: {{ left: '3%', right: '4%', bottom: '10%', top: '10%', containLabel: true }},
             xAxis: {{ type: 'category', boundaryGap: false, data: {json.dumps(dates)}, axisLine: {{ lineStyle: {{ color: 'rgba(255,255,255,0.2)' }} }}, axisLabel: {{ color: 'rgba(255,255,255,0.6)', formatter: function(value) {{ return value.substring(5); }} }}, splitLine: {{ show: false }} }},
-            yAxis: {{ type: 'value', axisLine: {{ show: false }}, axisLabel: {{ color: 'rgba(255,255,255,0.6)', formatter: function(value) {{ return (value / 10000).toFixed(0) + '万'; }} }}, splitLine: {{ lineStyle: {{ color: 'rgba(255,255,255,0.1)' }} }}, scale: true }},
+            yAxis: {{ type: 'value', axisLine: {{ show: false }}, axisLabel: {{ color: 'rgba(255,255,255,0.6)', formatter: function(value) {{ return (value / 10000).toFixed(0) + '亿'; }} }}, splitLine: {{ lineStyle: {{ color: 'rgba(255,255,255,0.1)' }} }}, scale: true }},
             dataZoom: [{{ type: 'inside', start: 0, end: 100 }}, {{ type: 'slider', start: 0, end: 100, height: 20, bottom: 0, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.3)', fillerColor: 'rgba(255,255,255,0.1)', handleStyle: {{ color: '#00d4ff' }}, textStyle: {{ color: 'rgba(255,255,255,0.6)' }} }}],
             series: [{{
                 name: '份额', type: 'line', smooth: true, symbol: 'circle', symbolSize: 4, sampling: 'lttb',
                 itemStyle: {{ color: '#00d4ff', borderWidth: 2 }},
                 areaStyle: {{ color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{{ offset: 0, color: 'rgba(0, 212, 255, 0.4)' }}, {{ offset: 1, color: 'rgba(0, 212, 255, 0)' }}]) }},
                 data: {json.dumps(volumes)},
-                markPoint: {{ data: [{{ type: 'max', name: '最大值' }}, {{ type: 'min', name: '最小值' }}], symbolSize: 50, label: {{ color: '#fff', formatter: function(param) {{ return (param.value / 10000).toFixed(0) + '万'; }} }} }},
-                markLine: {{ data: [{{ type: 'average', name: '平均值' }}], lineStyle: {{ color: 'rgba(255, 255, 255, 0.3)' }}, label: {{ color: 'rgba(255,255,255,0.6)', formatter: function(param) {{ return (param.value / 10000).toFixed(0) + '万'; }} }} }}
+                markPoint: {{ data: [{{ type: 'max', name: '最大值' }}, {{ type: 'min', name: '最小值' }}], symbolSize: 50, label: {{ color: '#fff', formatter: function(param) {{ return (param.value / 10000).toFixed(2) + '亿'; }} }} }},
+                markLine: {{ data: [{{ type: 'average', name: '平均值' }}], lineStyle: {{ color: 'rgba(255, 255, 255, 0.3)' }}, label: {{ color: 'rgba(255,255,255,0.6)', formatter: function(param) {{ return (param.value / 10000).toFixed(2) + '亿'; }} }} }}
             }}]
         }};
         chart.setOption(option);
@@ -177,7 +175,7 @@ if __name__ == '__main__':
     days = int(sys.argv[2]) if len(sys.argv) > 2 else 500
 
     print(f"Fetching ETF {etf_code} data for {days} days...")
-    trend = get_etf_trend(etf_code, days, max_workers=20)
+    trend = get_etf_trend(etf_code, days)
 
     if trend:
         output_path = os.path.join(PROJECT_DIR, 'data', f'etf_{etf_code}_trend.html')

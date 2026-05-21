@@ -31,12 +31,15 @@ def init_db() -> sqlite3.Connection:
     if 'full_name' not in columns:
         cursor.execute('ALTER TABLE etf_info ADD COLUMN full_name TEXT')
 
-    # 检查 etf_daily_share 表是否有 close_price 字段
+    # 检查 etf_daily_share 表是否有 close_price 和 market 字段
     cursor.execute("PRAGMA table_info(etf_daily_share)")
     share_columns = [col[1] for col in cursor.fetchall()]
 
     if 'close_price' not in share_columns:
         cursor.execute('ALTER TABLE etf_daily_share ADD COLUMN close_price REAL')
+
+    if 'market' not in share_columns:
+        cursor.execute('ALTER TABLE etf_daily_share ADD COLUMN market TEXT DEFAULT "SH"')
 
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS etf_info (
@@ -54,6 +57,7 @@ def init_db() -> sqlite3.Connection:
             tot_vol REAL,
             num INTEGER,
             close_price REAL,
+            market TEXT DEFAULT 'SH',
             PRIMARY KEY (sec_code, stat_date)
         )
     ''')
@@ -68,7 +72,7 @@ def get_connection() -> sqlite3.Connection:
     return sqlite3.connect(get_db_path())
 
 
-def save_to_db(conn, results, prices=None):
+def save_to_db(conn, results, prices=None, market='SH'):
     """
     保存到数据库
 
@@ -76,6 +80,7 @@ def save_to_db(conn, results, prices=None):
         conn: 数据库连接
         results: ETF份额数据列表
         prices: ETF收盘价字典 {sec_code: {date: close_price}}
+        market: 市场标识 'SH' 或 'SZ'
     """
     cursor = conn.cursor()
 
@@ -88,22 +93,23 @@ def save_to_db(conn, results, prices=None):
 
     data_list = []
     for r in results:
-        sec_code = r['SEC_CODE']
-        stat_date = r['STAT_DATE']
-        tot_vol = float(r['TOT_VOL'])
-        num = int(r['NUM'])
+        # 兼容两种字段格式：上交所(SEC_CODE)/深交所(sec_code)
+        sec_code = r.get('SEC_CODE', r.get('sec_code', ''))
+        stat_date = r.get('STAT_DATE', r.get('stat_date', ''))
+        tot_vol = float(r.get('TOT_VOL', r.get('tot_vol', 0)))
+        num = int(r.get('NUM', r.get('num', 0)))
         close_price = price_map.get((sec_code, stat_date))
-        data_list.append((sec_code, stat_date, tot_vol, num, close_price))
+        data_list.append((sec_code, stat_date, tot_vol, num, close_price, market))
 
     cursor.executemany(
-        'INSERT OR REPLACE INTO etf_daily_share (sec_code, stat_date, tot_vol, num, close_price) VALUES (?, ?, ?, ?, ?)',
+        'INSERT OR REPLACE INTO etf_daily_share (sec_code, stat_date, tot_vol, num, close_price, market) VALUES (?, ?, ?, ?, ?, ?)',
         data_list
     )
 
     # 批量处理ETF信息
     for r in results:
-        sec_code = r['SEC_CODE']
-        sec_name = r.get('SEC_NAME', '')
+        sec_code = r.get('SEC_CODE', r.get('sec_code', ''))
+        sec_name = r.get('SEC_NAME', r.get('sec_name', ''))
         etf_type = r.get('ETF_TYPE', '')
 
         # 检查现有记录
@@ -129,3 +135,4 @@ def save_to_db(conn, results, prices=None):
             )
 
     conn.commit()
+    return len(data_list)
