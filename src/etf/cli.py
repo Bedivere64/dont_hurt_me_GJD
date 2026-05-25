@@ -4,12 +4,14 @@ ETF命令行工具
 import sys
 from .fetcher import fetch_data, update_full_names
 from .fetcher_szse import fetch_data as fetch_szse_data
+from .fetcher_holders import update_holders
 from .queries import (
     query_rising_etfs,
     query_etf_trend,
     query_securities_etf,
     query_top_etfs,
-    check_data_completeness, query_etf_info
+    check_data_completeness, query_etf_info,
+    query_top_holders, query_holders_by_type
 )
 
 
@@ -44,6 +46,9 @@ ETF份额数据分析工具
     python -m src.etf.cli top [n]           # 查看份额增加最多的n只ETF
     python -m src.etf.cli top_pct [n]       # 查看份额增幅最多的n只ETF
     python -m src.etf.cli update_names       # 更新ETF完整名称
+    python -m src.etf.cli holders            # 采集所有ETF十大持有人数据
+    python -m src.etf.cli holders [代码]     # 查看某ETF十大持有人
+    python -m src.etf.cli holders_type [关键词] # 按持有人类型查询(如:保险/信托/私募)
 """)
         sys.exit(1)
 
@@ -119,6 +124,43 @@ ETF份额数据分析工具
         print('=' * 120)
     elif cmd == 'update_names':
         update_full_names()
+    elif cmd == 'holders':
+        sec_code = sys.argv[2] if len(sys.argv) > 2 else None
+        if sec_code:
+            holders, stat_date = query_top_holders(sec_code)
+            if not holders:
+                print(f'没有找到 {sec_code} 的持有人数据，请先运行: python -m src.etf.cli holders')
+                return
+            etf_info = query_etf_info(sec_code)
+            name = etf_info['full_name'] if etf_info else sec_code
+            print(f'\n{name} 十大持有人 (报告期: {stat_date}):')
+            print('=' * 80)
+            print(f'{"排名":<6} {"持有人名称":<40} {"持有份额":>15} {"占比":>10}')
+            print('-' * 80)
+            for rank, holder_name, share, pct in holders:
+                print(f'{rank:<6} {holder_name[:38]:<40} {share:>15,.0f} {pct:>9.2f}%')
+            print('=' * 80)
+        else:
+            # 采集所有ETF十大持有人
+            print('正在从新浪财经采集所有ETF十大持有人数据...')
+            count = update_holders()
+            print(f'完成，共采集 {count} 只ETF')
+    elif cmd == 'holders_type':
+        holder_type = sys.argv[2] if len(sys.argv) > 2 else None
+        results = query_holders_by_type(holder_type, min_pct=0.5)
+        if not results:
+            print('没有找到符合条件的持有人数据')
+            return
+        print(f'\nETF十大持有人查询 (持有比例>=0.5%, 关键词: {holder_type or "全部"}):')
+        print('=' * 110)
+        print(f'{"Code":<10} {"ETF名称":<28} {"持有人名称":<36} {"占比":>8} {"报告期":<12}')
+        print('-' * 110)
+        for row in results[:50]:
+            sec_code, full_name, holder_name, pct, stat_date = row
+            name = (full_name or sec_code)[:26]
+            print(f'{sec_code:<10} {name:<28} {holder_name[:34]:<36} {pct:>7.2f}% {stat_date}')
+        print('=' * 110)
+        print(f'共 {len(results)} 条结果（显示前50条）')
     else:
         print(f"Unknown command: {cmd}")
         print("Run without arguments to see usage")

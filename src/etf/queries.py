@@ -206,3 +206,91 @@ def check_data_completeness() -> List[Tuple]:
     daily_counts = cursor.fetchall()
     conn.close()
     return daily_counts
+
+
+def query_top_holders(sec_code: str) -> Tuple:
+    """
+    查询某ETF的十大持有人
+
+    Args:
+        sec_code: ETF代码
+
+    Returns:
+        (holders_list, stat_date)
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # 获取最新报告期
+    cursor.execute('''
+        SELECT stat_date FROM etf_top_holders
+        WHERE sec_code = ?
+        ORDER BY stat_date DESC
+        LIMIT 1
+    ''', (sec_code,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return [], None
+    stat_date = row[0]
+
+    # 获取十大持有人
+    cursor.execute('''
+        SELECT rank, holder_name, holder_share, holder_pct
+        FROM etf_top_holders
+        WHERE sec_code = ? AND stat_date = ?
+        ORDER BY rank
+    ''', (sec_code, stat_date))
+    holders = cursor.fetchall()
+    conn.close()
+    return holders, stat_date
+
+
+def query_holders_by_type(holder_type: str = None, min_pct: float = 1.0) -> List[Tuple]:
+    """
+    按持有人类型查询（如保险公司、信托等）
+
+    Args:
+        holder_type: 持有人类型关键词，如 "保险"、"信托"、"私募"
+        min_pct: 最小持有比例
+
+    Returns:
+        [(sec_code, full_name, holder_name, holder_pct, stat_date), ...]
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # 获取数据量最多的报告期（因为有些ETF日期解析可能出错）
+    cursor.execute('''
+        SELECT stat_date FROM etf_top_holders
+        GROUP BY stat_date
+        ORDER BY COUNT(*) DESC
+        LIMIT 1
+    ''')
+    latest_date = cursor.fetchone()[0]
+
+    if holder_type:
+        cursor.execute('''
+            SELECT h.sec_code, i.full_name, h.holder_name, h.holder_pct, h.stat_date
+            FROM etf_top_holders h
+            LEFT JOIN etf_info i ON h.sec_code = i.sec_code
+            WHERE h.stat_date = ?
+              AND h.holder_name LIKE ?
+              AND h.holder_pct >= ?
+            ORDER BY h.holder_pct DESC
+            LIMIT 100
+        ''', (latest_date, f'%{holder_type}%', min_pct))
+    else:
+        cursor.execute('''
+            SELECT h.sec_code, i.full_name, h.holder_name, h.holder_pct, h.stat_date
+            FROM etf_top_holders h
+            LEFT JOIN etf_info i ON h.sec_code = i.sec_code
+            WHERE h.stat_date = ?
+              AND h.holder_pct >= ?
+            ORDER BY h.holder_pct DESC
+            LIMIT 100
+        ''', (latest_date, min_pct))
+
+    results = cursor.fetchall()
+    conn.close()
+    return results

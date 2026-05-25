@@ -63,6 +63,24 @@ def init_db() -> sqlite3.Connection:
     ''')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_stat_date ON etf_daily_share(stat_date)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_sec_code ON etf_daily_share(sec_code)')
+
+    # 十大持有人表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS etf_top_holders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sec_code TEXT NOT NULL,
+            stat_date TEXT NOT NULL,
+            rank INTEGER NOT NULL,
+            holder_name TEXT NOT NULL,
+            holder_share REAL,
+            holder_pct REAL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(sec_code, stat_date, rank)
+        )
+    ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_holders_code ON etf_top_holders(sec_code)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_holders_date ON etf_top_holders(stat_date)')
+
     conn.commit()
     return conn
 
@@ -136,3 +154,23 @@ def save_to_db(conn, results, prices=None, market='SH'):
 
     conn.commit()
     return len(data_list)
+
+
+def save_holders_to_db(conn, sec_code: str, stat_date: str, holders: list):
+    """
+    保存ETF十大持有人数据
+
+    Args:
+        conn: 数据库连接
+        sec_code: ETF代码
+        stat_date: 报告期
+        holders: 持有人列表 [(rank, holder_name, holder_share, holder_pct), ...]
+    """
+    cursor = conn.cursor()
+    for rank, holder_name, holder_share, holder_pct in holders:
+        cursor.execute('''
+            INSERT OR REPLACE INTO etf_top_holders
+            (sec_code, stat_date, rank, holder_name, holder_share, holder_pct)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (sec_code, stat_date, rank, holder_name, holder_share, holder_pct))
+    conn.commit()
