@@ -1,0 +1,61 @@
+.ranking-page h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 24px;
+}
+
+.ranking-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.ranking-card {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16162a 100%);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(0, 212, 255, 0.1);
+}
+
+.ranking-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(0, 212, 255, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 212, 255, 0.15);
+}
+
+.rank {
+  font-size: 24px;
+  font-weight: 700;
+  color: #00D4FF;
+  min-width: 50px;
+  text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+}
+
+.info {
+  flex: 1;
+}
+
+.name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.code {
+  font-size: 13px;
+  color: #8892b0;
+  margin-top: 4px;
+  font-family: 'SF Mono', 'Consolas', monospace;
+}
+
+.vol {
+  font-size: 18px;
+  font-weight: 600;
+  color: #34C759;
+}
