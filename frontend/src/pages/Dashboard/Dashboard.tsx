@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { getETFRanking } from '../../services/api'
-import { TrendingUp, TrendingDown, Activity, BarChart3 } from 'lucide-react'
-import { AreaChart, Area, ResponsiveContainer } from 'recharts'
+import { TrendingUp, Activity, BarChart3 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import './Dashboard.css'
 
