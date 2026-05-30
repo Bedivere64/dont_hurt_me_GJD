@@ -1,5 +1,48 @@
+# Claude
 .claude/
+.claude/**/
+
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+venv/
+ENV/
+.venv/
+
+# Node
+node_modules/
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# Data (local development only)
+data/*.db
+data/*.sqlite
 data/
-data/etf_data.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+
+# Secrets
+.env
+*.pem
+*.key
+
+# Temp
+tmp/
+temp/
+*.tmp
+
+# Backend specific
+backend/venv/
+backend/__pycache__/
+backend/app/__pycache__/
