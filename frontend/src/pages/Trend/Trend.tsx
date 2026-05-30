@@ -43,7 +43,7 @@ export default function Trend() {
             </tr>
           </thead>
           <tbody>
-            {data?.slice().reverse().map((item: any) => (
+            {(data ?? []).slice().reverse().map((item) => (
               <tr key={item.date}>
                 <td>{item.date}</td>
                 <td>{item.tot_vol?.toFixed(2)}</td>
